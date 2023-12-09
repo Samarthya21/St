@@ -5,6 +5,8 @@ const cors= require('cors');
 const bodyParser = require('body-parser');
 app.use(express.json())
 const userModel=require("/Users/samarthyaalok/Desktop/sticky_notes_server/userModel.js");
+const validator= require("validator")
+const bcrypt = require('bcrypt')
 
 app.use(cors());
 
@@ -12,13 +14,52 @@ app.use(cors());
 app.post("/api/home",async (req,res)=>{
     console.log("Received post request from signup")
     let obj=req.body;
-    let user= await userModel.create(obj);
-    console.log({message:obj});
-    res.json({
-      message: "user signup done",
-      data: obj,
-    });
-    
+    let {email,password}=req.body;
+    if(!email || !password ){
+        console.log("Password or Email is empty");
+        res.json({
+            message:"Email or Password is empty",
+            data:obj
+        })
+        return;
+    }
+    else if(!validator.isEmail(email)){
+        console.log("Invalid Email");
+        res.json({
+            message:"This is not the format of an email",
+            data:obj
+        })
+        return;
+    }
+    else{
+        
+        if(await userModel.findOne({email:email})){
+            console.log("Email already in database , no need to signup")
+            res.json({
+                message:"User already in the database",
+                data:obj
+            })
+            return;
+        }
+        else{
+        console.log("User signup successful");
+        //Encryption of password using salt and hashing - bcrypt library
+        const salt = await bcrypt.genSalt(10);
+        const hash= await bcrypt.hash(password,salt);
+        let user= await userModel.create({email,password:hash});
+        console.log({message:obj});
+        res.json({
+          message: "user signup done",
+          data: obj,
+        });
+        return;
+
+        }
+        
+
+    }
+   
+//    
 })
 
 //
@@ -27,18 +68,30 @@ app.post("/api/login", async (req,res)=>{
     try{
     let email=req.body.email;
     let password=req.body.password;
+    if(!email || !password){
+        res.json({
+            message:"NULL ENTRY"
+        })
+        return;
+    }
     let user=await userModel.findOne({email:email});
     
    
     if(user){
         let uid=user._id;
-        if(password==user.password){
+        //Checking encrypted password using bcrypt library
+        let match= await bcrypt.compare(password,user.password);
+
+        if(match){
             console.log("Successful login");
             
             res.json({
                 user:true,
-                unique_id:uid
+                unique_id:uid,
+                message:"Successfull Login"
+
             })
+            return
 
         }
         else{
@@ -46,8 +99,10 @@ app.post("/api/login", async (req,res)=>{
             
             res.json({
                 user:false,
+                message:"Incorrect Credentials"
                 
             });
+            return;
             
         }
     }
@@ -57,6 +112,7 @@ app.post("/api/login", async (req,res)=>{
         res.json({
             user:false
         })
+        return;
     }
    
 }
@@ -66,20 +122,37 @@ catch(err){
 
 
 });
-
+//succesfully created update 
 app.post("/api/read", async (req,res)=>{
     console.log("Received request from submit button");
     try{
         
         let obj = req.body;
-        const {unique_email,title,content}=req.body;
-        console.log(obj);
+        const {unique_email,title,content,key_read}=req.body;
+        //console.log(obj);
         const user= await userModel.findOne({email:obj.unique_email});
-        console.log(user);
+        //console.log(user);
         if(user){
             console.log("User found");
-            user.notes.push({title:title,content:content});
+            
+            const stringKeyRead = String(key_read);
+            const existingNote = user.notes.find(note => note.key === stringKeyRead);
+            //console.log(existingNote)
+            if(existingNote){
+               console.log("Updating user")
+               existingNote.title=title;
+               existingNote.content=content;
+                
+                  
+            }
+            else{
+                //new note here
+                console.log("New note added in db")
+                user.notes.push({key:key_read,title:title,content:content});
+                
+            }
             await user.save();
+            
         }
         else{
             console.log("User not found");
@@ -112,6 +185,30 @@ app.post("/api/create",async (req,res)=>{
     }
 
 });
+
+//sucessfully created delete function
+app.post("/api/del", async (req,res)=>{
+    console.log("Post request to delete api")
+    try{
+    let obj=req.body;
+    let user=await userModel.findOne({email:obj.unique_email})
+    if(user){
+        console.log("User found")
+        const stringKeyRead = String(obj.key_read);
+        await userModel.updateOne(
+            { email: obj.unique_email },
+            { $pull: { notes: { key: stringKeyRead } } }
+        );
+
+        res.json({
+            message: "Note deleted successfully",
+        });
+    }
+}
+catch(err){
+    console.log(err)
+}
+})
 
 
 app.listen(port,()=>{

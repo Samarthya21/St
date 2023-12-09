@@ -1,7 +1,8 @@
 const mongoose=require('mongoose');
+require('dotenv').config();
 
-const db_link = "mongodb+srv://samarthya777:AMirZR2Y0tawLKED@cluster0.1pcf65w.mongodb.net/?retryWrites=true&w=majority";
 
+const db_link = process.env.DATABASE;
 mongoose.connect(db_link)
 .then(function(db){
     console.log("db connected");
@@ -32,6 +33,10 @@ const userSchema= mongoose.Schema({
             type: String,
             required: false, 
           },
+          key:{
+            type:String,
+            required:false
+          }
         },
       ],
 });
