@@ -4,7 +4,7 @@ const port= process.env.PORT  || 8080;
 const cors= require('cors');
 const bodyParser = require('body-parser');
 app.use(express.json())
-const userModel=require("/Users/samarthyaalok/Desktop/sticky_notes_server/userModel.js");
+const userModel=require("./userModel.js");
 const validator= require("validator")
 const bcrypt = require('bcrypt')
 
